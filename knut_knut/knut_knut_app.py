@@ -1,115 +1,213 @@
-import os
-import numpy as np
-import matplotlib.pyplot as plt
 from flask import Flask
 from flask import request
 from flask import send_from_directory
 import pandas as pd
-import matplotlib
-matplotlib.use('Agg')  # Prevents GUI issues in Flask
+import datetime as dt
+import matplotlib.pyplot as plt
+import numpy as np
 
 app = Flask(__name__)
 df = None  # Global variable to hold the DataFrame
-road_function_params = {}
+loaded_params = None  # Global variable to hold loaded parameters
 
 
 def load_data(file_path):
     """Load data from jsonl file into a pandas DataFrame."""
-    return pd.read_json(file_path, lines=True)
-
-
-def preprocess_data(df):
-    """convert timestrings to minutes from midnight and create smoothed traveltime column"""
-    df['depature_dt'] = pd.to_datetime(df['depature'], format='%H:%M')
-    df['arrival_dt'] = pd.to_datetime(df['arrival'], format='%H:%M')
-
-    # average dep time duplicates per road
-    df = df.groupby(['road', 'depature_dt'], as_index=False).agg({
-        'depature': 'first',
-        'arrival': 'first',
-        'depature_dt': 'first',
-        'arrival_dt': 'median'
-    })
-    df.reset_index(drop=True, inplace=True)
-
-    df['dep_minutes'] = df['depature_dt'].dt.hour * \
-        60 + df['depature_dt'].dt.minute
-    df['arr_minutes'] = df['arrival_dt'].dt.hour * \
-        60 + df['arrival_dt'].dt.minute
-
-    df['traveltime'] = df['arr_minutes'] - df['dep_minutes']  # in minutes
-
-    # smooth traveltime using exponential moving average per road
-    df = df.sort_values(['road', 'dep_minutes'])
-    df['smoothed_traveltime'] = df.groupby('road')['traveltime'].transform(
-        lambda x: x.ewm(alpha=0.2, adjust=False).mean()
-    )
-
+    df = pd.read_json(file_path, lines=True)
     return df
 
 
-def get_travel_times_at(dep_time):
-    """Get travel times for all roads at a specific departure time."""
-    times = {}
+def plot_travel_times(df):
+    """Plot travel times for each road and save the plot as an image."""
+    df['travel_time'] = pd.to_datetime(
+        df['arrival']) - pd.to_datetime(df['depature'])
+    for road, group in df.groupby('road'):
+        group = group.sort_values(by='depature')
+        times = (group['travel_time'].dt.total_seconds() / 60).astype(float)
+        depatures = pd.to_datetime(
+            group['depature']).dt.hour * 60 + pd.to_datetime(group['depature']).dt.minute
+        plt.figure()
+        plt.scatter(depatures, times)
+        plt.title(f'Travel Times for {road}')
+        plt.xlabel('Departure Time')
+        plt.ylabel('Travel Time')
+        plt.tight_layout()
+        road = road.replace("-", "").replace(">", "")
+        plt.savefig(f'{road}_travel_times.png')
 
-    for road_name in df['road'].unique():  # Fixed: iterate over unique road names
-        road_data = df[df['road'] == road_name]  # Filter data for this road
-        road_data = road_data.sort_values(
-            'dep_minutes')  # Sort by departure time
 
-        # If the exact departure time exists, use it
-        exact_match = road_data[road_data['dep_minutes'] == dep_time]
-        if not exact_match.empty:
-            travel_time = exact_match['smoothed_traveltime'].iloc[0]
-        else:
-            # Linear interpolation between closest times
+def predict_ACD(dep_datetime, params):
+    """
+    0: ACD 5 params: x**2 like
+    all params should be normalized
+    """
+    dep_mins = dep_datetime.hour * 60 + dep_datetime.minute
+    traveltime_ACD = params[0] *(dep_mins-params[1])**2
+    traveltime_ACD += params[2]
+    return traveltime_ACD
 
-            # Find times before and after
-            before_times = road_data[road_data['dep_minutes'] <= dep_time]
-            after_times = road_data[road_data['dep_minutes'] >= dep_time]
 
-            if before_times.empty and after_times.empty:
-                # No data for this road
-                travel_time = np.nan
-            elif before_times.empty:
-                # Only future times available - use the earliest
-                travel_time = after_times['smoothed_traveltime'].iloc[0]
-            elif after_times.empty:
-                # Only past times available - use the latest
-                travel_time = before_times['smoothed_traveltime'].iloc[-1]
+def predict_ACE(dep_datetime, df):
+    """
+    1: ACE no params needed
+    """
+    df = df[df['road'] == 'A->C->E']
+    df = df.sort_values(by='depature')
+    #closest_index = (df['values'] - target_value).abs().idxmin()
+    dep_mins = dep_datetime.hour * 60 + dep_datetime.minute
+    df['dep_mins'] = pd.to_datetime(df['depature']).dt.hour * 60 + pd.to_datetime(df['depature']).dt.minute
+    closest_index = (df['dep_mins'] - dep_mins).abs().idxmin()
+    traveltime_ACE = (pd.to_datetime(df.loc[closest_index, 'arrival']) - pd.to_datetime(df.loc[closest_index, 'depature'])).total_seconds() / 60
+    print(traveltime_ACE)
+    return traveltime_ACE
+
+
+def predict_BCE(dep_datetime, params):
+    """
+    3: BCE sägezahn: 4 params
+    all params should be normalized
+    """
+    dep_mins = dep_datetime.hour * 60 + dep_datetime.minute
+    traveltime_BCE = params[0] *((dep_mins-params[1]) % params[2]) + params[3]
+    return traveltime_BCE
+
+
+def predict_BCD(dep_datetime, params):
+    """
+    2: BCD parabola + sägezahn: 7 params
+    all params should be normalized
+    """
+    dep_mins = dep_datetime.hour * 60 + dep_datetime.minute
+    traveltime_BCD = params[0]*(dep_mins-params[1])**2
+    traveltime_BCD += params[2]
+    traveltime_BCD += params[3]*((dep_mins-params[4]) % params[5]) + params[6]
+    return traveltime_BCD
+
+
+def train_model(df):
+    """Train models using fortuna for each road and return parameters."""
+    best_params = {key: None for key in df['road'].unique()}
+    #observation based seeding
+    best_params['A->C->E'] = None  # No params to train for ACE
+    best_params['A->C->D'] = [0.1,700.,80.]  # 3 params for ACD
+    best_params['B->C->D'] = [0.001,700.,70.,-1,60.,80., 0.]  # 7 params for BCD
+    best_params['B->C->E'] = [-0.7,50.,100.,70.]  # 4 params for BCE
+    for road, group in df.groupby('road'):
+        if road == 'A->C->E':
+            continue  # No params to train for ACE
+        params = best_params[road].copy()
+        best_loss = float('inf')
+        group = group.sort_values(by='depature')
+        epochs = 1000
+        for epoch in range(epochs):
+            params = best_params[road] * (1 + np.random.normal(0, 0.05,len(params)))
+            loss = 0
+            for _, row in group.iterrows():
+                match road:
+                    case 'A->C->D':
+                        y_hat = predict_ACD(pd.to_datetime(row['depature']), params)
+                    case 'B->C->D':
+                        y_hat = predict_BCD(pd.to_datetime(row['depature']), params)
+                    case 'B->C->E':
+                        y_hat = predict_BCE(pd.to_datetime(row['depature']), params)
+                y = (pd.to_datetime(row['arrival']) - pd.to_datetime(row['depature'])).total_seconds() / 60
+                loss += (y - y_hat) ** 2
+            loss /= len(group)
+            if loss < best_loss:
+                best_loss = loss
+                best_params[road] = params
+            if epoch % 10 == 0:
+                print(f"Road: {road}, Epoch: {epoch}, Loss: {best_loss:.4f}")
+            
+    #save best params to a file
+    with open('best_params.txt', 'w') as f:
+        for road, params in best_params.items():
+            f.write(f"{road}: {params}\n")
+
+
+def plot_predictions_vs_actual(df, best_params):
+    """Plot predictions vs actual travel times for each road."""
+    for road, group in df.groupby('road'):
+        group = group.sort_values(by='depature')
+        depatures = pd.to_datetime(group['depature']).dt.hour * 60 + pd.to_datetime(group['depature']).dt.minute
+        actual_times = (pd.to_datetime(group['arrival']) - pd.to_datetime(group['depature'])).dt.total_seconds() / 60
+        predicted_times = []
+        for _, row in group.iterrows():
+            match road:
+                case 'A->C->D':
+                    y_hat = predict_ACD(pd.to_datetime(row['depature']), best_params[road])
+                case 'A->C->E':
+                    y_hat = predict_ACE(pd.to_datetime(row['depature']), df)
+                case 'B->C->D':
+                    y_hat = predict_BCD(pd.to_datetime(row['depature']), best_params[road])
+                case 'B->C->E':
+                    y_hat = predict_BCE(pd.to_datetime(row['depature']), best_params[road])
+            predicted_times.append(y_hat)
+        print(predicted_times[:5])
+        print(actual_times[:5])
+        plt.figure()
+        plt.scatter(depatures, actual_times, label='Actual', color='blue')
+        plt.scatter(depatures, predicted_times, label='Predicted', color='red', alpha=0.5)
+        plt.title(f'Predictions vs Actual for {road}')
+        plt.xlabel('Departure Time (mins)')
+        plt.ylabel('Travel Time (mins)')
+        plt.legend()
+        plt.tight_layout()
+        road_clean = road.replace("-", "").replace(">", "")
+        plt.savefig(f'{road_clean}_predictions_vs_actual.png')
+
+
+def load_best_params(file_path='best_params.txt'):
+    """Load best parameters from a file."""
+    best_params = {}
+    with open(file_path, 'r') as f:
+        for line in f:
+            road, params_str = line.strip().split(': ')
+            if params_str == 'None':
+                best_params[road] = None
             else:
-                # Interpolate between before and after
-                before_row = before_times.iloc[-1]  # Latest time before
-                after_row = after_times.iloc[0]     # Earliest time after
-
-                # Linear interpolation
-                x1, y1 = before_row['dep_minutes'], before_row['smoothed_traveltime']
-                x2, y2 = after_row['dep_minutes'], after_row['smoothed_traveltime']
-
-                if x1 == x2:  # Same time (shouldn't happen, but safety check)
-                    travel_time = y1
-                else:
-                    # Linear interpolation formula: y = y1 + (y2-y1) * (x-x1) / (x2-x1)
-                    travel_time = y1 + (y2 - y1) * (dep_time - x1) / (x2 - x1)
-
-        times[road_name] = travel_time
-
-    return times
+                params = list(map(float, params_str.strip('[]').split(' ')))
+                best_params[road] = params
+    return best_params
 
 
 def get_best_route(dep_hour=0, dep_min=0):
     """Get the best route and estimated travel time for a given departure time."""
     out = ""
     if not dep_hour.isdigit():
-        dep_hour = 00
-        out += "<p>Invalid hour input, using 0.</p>"
+        dep_hour = 6
+        out += "<p>Hour input must be a digit. Defaulting to 6.</p>"
     if not dep_min.isdigit():
-        dep_min = 00
-        out += "<p>Invalid minute input, using 0.</p>"
-    dep_time = int(dep_hour) * 60 + int(dep_min)
-    interpolated_times = get_travel_times_at(dep_time)
-    best_road = min(interpolated_times, key=interpolated_times.get)
-    est_travel_time = interpolated_times[best_road]
+        dep_min = 0
+        out += "<p>Minute input must be a digit. Defaulting to 0.</p>"
+    match int(dep_hour):
+        case h if 6 <= h <= 16:
+            pass
+        case h if h > 16:
+            dep_hour = 16
+            out += "<p>Hour too late, using 16.</p>"
+        case _:
+            dep_hour = 0
+            out += "<p>Hour too early, using 6.</p>"
+    match int(dep_min):
+        case m if 0 <= m <= 59:
+            pass
+        case m if m > 59:
+            dep_min = 59
+            out += "<p>Minute too high, using 59.</p>"
+        case _:
+            dep_min = 0
+            out += "<p>Invalid minute input, using 0.</p>"
+    
+    dep_datetime = dt.datetime(2023, 1, 1, int(dep_hour), int(dep_min))
+    routes = {
+        'A->C->D': predict_ACD(dep_datetime, loaded_params['A->C->D']),
+        'A->C->E': predict_ACE(dep_datetime, df),
+        'B->C->D': predict_BCD(dep_datetime, loaded_params['B->C->D']),
+        'B->C->E': predict_BCE(dep_datetime, loaded_params['B->C->E']),
+    }
+    best_road = min(routes, key=routes.get)
+    est_travel_time = routes[best_road]
 
     out += """
     <p>
@@ -121,6 +219,42 @@ def get_best_route(dep_hour=0, dep_min=0):
     """.format(dep_hour, dep_min, best_road, est_travel_time)
 
     return out
+
+
+def avg_travel_time_vs_best():
+    traveltimes = pd.DataFrame(columns=['dep_time', 'A->C->D', 'A->C->E', 'B->C->D', 'B->C->E', 'mean','min'])
+    for hour in range(6, 17):
+        for minute in range(0, 60, 5):
+            dep_datetime = dt.datetime(2023, 1, 1, hour, minute)
+            row = {'dep_time': hour*60 + minute}
+            row['A->C->D'] = predict_ACD(dep_datetime, loaded_params['A->C->D'])
+            row['A->C->E'] = predict_ACE(dep_datetime, df)
+            row['B->C->D'] = predict_BCD(dep_datetime, loaded_params['B->C->D'])
+            row['B->C->E'] = predict_BCE(dep_datetime, loaded_params['B->C->E'])
+            row['mean'] = np.mean([row['A->C->D'], row['A->C->E'], row['B->C->D'], row['B->C->E']])
+            row['min'] = np.min([row['A->C->D'], row['A->C->E'], row['B->C->D'], row['B->C->E']])
+            traveltimes = pd.concat([traveltimes, pd.DataFrame([row])], ignore_index=True)
+    plt.figure()
+    plt.plot(traveltimes['dep_time'], traveltimes['mean'], label='Mean Travel Time', color='blue')
+    plt.plot(traveltimes['dep_time'], traveltimes['min'], label='Best Travel Time', color='red')
+    plt.title('Mean vs Best Travel Time')
+    plt.xlabel('Departure Time (mins)')
+    plt.ylabel('Travel Time (mins)')
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig('mean_vs_best_travel_time.png')
+
+
+
+    overall_avg_avg = traveltimes['mean'].mean()
+    overall_best_avg = traveltimes['min'].mean()
+    improvement = (overall_avg_avg - overall_best_avg) / overall_avg_avg * 100
+
+    #write stats to a file
+    with open('travel_time_stats.txt', 'w') as f:
+        f.write(f"Overall average travel time: {overall_avg_avg:.2f} mins\n")
+        f.write(f"Overall average best travel time: {overall_best_avg:.2f} mins\n")
+        f.write(f"Improvement: {improvement:.2f}%\n")
 
 
 @app.route('/')
@@ -161,7 +295,9 @@ def get_route():
 
 if __name__ == '__main__':
     print("<starting>")
+    loaded_params = load_best_params('best_params.txt')
     df = load_data('traffic.jsonl')
-    df = preprocess_data(df)
-    app.run()
+    #train_model(df)
+    #app.run()
+    avg_travel_time_vs_best()
     print("<done>")
