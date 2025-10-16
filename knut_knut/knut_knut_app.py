@@ -1,3 +1,8 @@
+"""
+Knut Knut Transport AS Flask App
+Copilot was used to help writing some functions.
+"""
+
 from flask import Flask
 from flask import request
 from flask import send_from_directory
@@ -173,12 +178,28 @@ def load_best_params(file_path='best_params.txt'):
 
 def get_best_route(dep_hour=0, dep_min=0):
     """Get the best route and estimated travel time for a given departure time."""
+    dep_datetime = dt.datetime(2023, 1, 1, int(dep_hour), int(dep_min))
+    routes = {
+        'A->C->D': predict_ACD(dep_datetime, loaded_params['A->C->D']),
+        'A->C->E': predict_ACE(dep_datetime, df),
+        'B->C->D': predict_BCD(dep_datetime, loaded_params['B->C->D']),
+        'B->C->E': predict_BCE(dep_datetime, loaded_params['B->C->E']),
+    }
+    best_road = min(routes, key=routes.get)
+    est_travel_time = routes[best_road]
+
+    return best_road, est_travel_time
+
+
+
+def get_best_route_text(dep_hour=0, dep_min=0):
+    """Get the best route and estimated travel time for a given departure time."""
     out = ""
     if not dep_hour.isdigit():
         dep_hour = 6
         out += "<p>Hour input must be a digit. Defaulting to 6.</p>"
     if not dep_min.isdigit():
-        dep_min = 0
+        dep_min = 00
         out += "<p>Minute input must be a digit. Defaulting to 0.</p>"
     match int(dep_hour):
         case h if 6 <= h <= 16:
@@ -196,27 +217,37 @@ def get_best_route(dep_hour=0, dep_min=0):
             dep_min = 59
             out += "<p>Minute too high, using 59.</p>"
         case _:
-            dep_min = 0
+            dep_min = 00
             out += "<p>Invalid minute input, using 0.</p>"
     
+    best_road, est_travel_time = get_best_route(dep_hour, dep_min)
+
+    # Calculate best route for 10 minutes from now
     dep_datetime = dt.datetime(2023, 1, 1, int(dep_hour), int(dep_min))
-    routes = {
-        'A->C->D': predict_ACD(dep_datetime, loaded_params['A->C->D']),
-        'A->C->E': predict_ACE(dep_datetime, df),
-        'B->C->D': predict_BCD(dep_datetime, loaded_params['B->C->D']),
-        'B->C->E': predict_BCE(dep_datetime, loaded_params['B->C->E']),
-    }
-    best_road = min(routes, key=routes.get)
-    est_travel_time = routes[best_road]
+    dep_datetime_plus10 = dep_datetime + dt.timedelta(minutes=10)
+    # Check if the new time is within valid range (6-16 hours)
+    if dep_datetime_plus10.hour <= 16:
+        best_road_plus10, est_travel_time_plus10 = get_best_route(dep_datetime_plus10.hour, dep_datetime_plus10.minute)
+        
+        plus10_info = """
+        <p>
+        Best route in 10 minutes: <br>
+        Departure time: {}:{:02d} <br> 
+        Best travel route: {} <br> 
+        Estimated travel time of {:.1f} minutes. </p>
+        """.format(dep_datetime_plus10.hour, dep_datetime_plus10.minute, best_road_plus10, est_travel_time_plus10)
+    else:
+        plus10_info = "<p>No route available 10 minutes later (outside operating hours 6-16).</p>"
 
     out += """
     <p>
-    Best route by nearest point linear interpolation: <br>
+    Best route: <br>
     Departure time: {}:{} <br> 
     Best travel route: {} <br> 
     Estimated travel time of {:.1f} minutes. </p> 
+    {}
     <p><a href="/">Back</a></p>
-    """.format(dep_hour, dep_min, best_road, est_travel_time)
+    """.format(dep_hour, dep_min, best_road, est_travel_time, plus10_info)
 
     return out
 
@@ -289,7 +320,7 @@ def get_route():
     departure_h = request.args.get('hour')
     departure_m = request.args.get('mins')
 
-    better_route_info = get_best_route(departure_h, departure_m)
+    better_route_info = get_best_route_text(departure_h, departure_m)
     return better_route_info
 
 
@@ -298,6 +329,6 @@ if __name__ == '__main__':
     loaded_params = load_best_params('best_params.txt')
     df = load_data('traffic.jsonl')
     #train_model(df)
-    #app.run()
-    avg_travel_time_vs_best()
+    app.run()
+    #avg_travel_time_vs_best()
     print("<done>")
