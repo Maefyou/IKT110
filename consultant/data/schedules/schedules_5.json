@@ -1,0 +1,496 @@
+{
+  "monday": [
+    {
+      "worker_id": "w_266fa275-b1fe-466e-93da-bb363aa58c0e",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_9b0bfe06-409e-4866-ab96-21709191b551",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eec83a9b-610a-48fb-9040-e391d9692e58",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_10ab8df4-26ea-4db8-a649-6fefad6a49a2",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_11c128a5-fa36-49b9-b6ae-eedf066abaa3",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f7b7dcda-ef14-42fc-a7a7-c805b5a9474f",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_69135bbe-3365-4353-ab0d-abe49015fb5c",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_88067ac3-6a87-4b86-9458-32c5087cbc03",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_e4193eab-ed9e-4e3e-82d4-5e216a374082",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_5b12c0fe-e518-49e1-992e-710c2bf6844f",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f8f44e7b-d583-433c-9b4a-33aa057cd36c",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_2515d9cb-fa99-471d-9c2c-0f31159edf90",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_13664a99-7245-46d4-9cba-277b172a9ffa",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eefbc433-9ac0-468e-a915-bdc859bd9f4a",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_e5ad32bf-44c0-43f8-b17a-6503cbf508c2",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_6bf843a9-91a6-4595-b600-51292c96533b",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_fe2e429a-0254-4d7c-84aa-f0b9f193a02a",
+      "department": "utilities",
+      "shift": 2
+    }
+  ],
+  "tuesday": [
+    {
+      "worker_id": "w_266fa275-b1fe-466e-93da-bb363aa58c0e",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_9b0bfe06-409e-4866-ab96-21709191b551",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eec83a9b-610a-48fb-9040-e391d9692e58",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_10ab8df4-26ea-4db8-a649-6fefad6a49a2",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_11c128a5-fa36-49b9-b6ae-eedf066abaa3",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f7b7dcda-ef14-42fc-a7a7-c805b5a9474f",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_69135bbe-3365-4353-ab0d-abe49015fb5c",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_88067ac3-6a87-4b86-9458-32c5087cbc03",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_5b12c0fe-e518-49e1-992e-710c2bf6844f",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f8f44e7b-d583-433c-9b4a-33aa057cd36c",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_2515d9cb-fa99-471d-9c2c-0f31159edf90",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_13664a99-7245-46d4-9cba-277b172a9ffa",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eefbc433-9ac0-468e-a915-bdc859bd9f4a",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_e5ad32bf-44c0-43f8-b17a-6503cbf508c2",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_6bf843a9-91a6-4595-b600-51292c96533b",
+      "department": "utilities",
+      "shift": 1
+    }
+  ],
+  "wednesday": [
+    {
+      "worker_id": "w_266fa275-b1fe-466e-93da-bb363aa58c0e",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_9b0bfe06-409e-4866-ab96-21709191b551",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eec83a9b-610a-48fb-9040-e391d9692e58",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_10ab8df4-26ea-4db8-a649-6fefad6a49a2",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_11c128a5-fa36-49b9-b6ae-eedf066abaa3",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f7b7dcda-ef14-42fc-a7a7-c805b5a9474f",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_69135bbe-3365-4353-ab0d-abe49015fb5c",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_5b12c0fe-e518-49e1-992e-710c2bf6844f",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f8f44e7b-d583-433c-9b4a-33aa057cd36c",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_2515d9cb-fa99-471d-9c2c-0f31159edf90",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_13664a99-7245-46d4-9cba-277b172a9ffa",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eefbc433-9ac0-468e-a915-bdc859bd9f4a",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_e5ad32bf-44c0-43f8-b17a-6503cbf508c2",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_6bf843a9-91a6-4595-b600-51292c96533b",
+      "department": "utilities",
+      "shift": 1
+    }
+  ],
+  "thursday": [
+    {
+      "worker_id": "w_266fa275-b1fe-466e-93da-bb363aa58c0e",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_9b0bfe06-409e-4866-ab96-21709191b551",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eec83a9b-610a-48fb-9040-e391d9692e58",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_10ab8df4-26ea-4db8-a649-6fefad6a49a2",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_11c128a5-fa36-49b9-b6ae-eedf066abaa3",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f7b7dcda-ef14-42fc-a7a7-c805b5a9474f",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_69135bbe-3365-4353-ab0d-abe49015fb5c",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_88067ac3-6a87-4b86-9458-32c5087cbc03",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_5b12c0fe-e518-49e1-992e-710c2bf6844f",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f8f44e7b-d583-433c-9b4a-33aa057cd36c",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_2515d9cb-fa99-471d-9c2c-0f31159edf90",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_13664a99-7245-46d4-9cba-277b172a9ffa",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eefbc433-9ac0-468e-a915-bdc859bd9f4a",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_e5ad32bf-44c0-43f8-b17a-6503cbf508c2",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_6bf843a9-91a6-4595-b600-51292c96533b",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_fe2e429a-0254-4d7c-84aa-f0b9f193a02a",
+      "department": "utilities",
+      "shift": 2
+    }
+  ],
+  "friday": [
+    {
+      "worker_id": "w_266fa275-b1fe-466e-93da-bb363aa58c0e",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_9b0bfe06-409e-4866-ab96-21709191b551",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eec83a9b-610a-48fb-9040-e391d9692e58",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_10ab8df4-26ea-4db8-a649-6fefad6a49a2",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_11c128a5-fa36-49b9-b6ae-eedf066abaa3",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_5b12c0fe-e518-49e1-992e-710c2bf6844f",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f8f44e7b-d583-433c-9b4a-33aa057cd36c",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_2515d9cb-fa99-471d-9c2c-0f31159edf90",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_13664a99-7245-46d4-9cba-277b172a9ffa",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eefbc433-9ac0-468e-a915-bdc859bd9f4a",
+      "department": "utilities",
+      "shift": 1
+    }
+  ],
+  "saturday": [
+    {
+      "worker_id": "w_266fa275-b1fe-466e-93da-bb363aa58c0e",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_9b0bfe06-409e-4866-ab96-21709191b551",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eec83a9b-610a-48fb-9040-e391d9692e58",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_10ab8df4-26ea-4db8-a649-6fefad6a49a2",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_11c128a5-fa36-49b9-b6ae-eedf066abaa3",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f7b7dcda-ef14-42fc-a7a7-c805b5a9474f",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_69135bbe-3365-4353-ab0d-abe49015fb5c",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_5b12c0fe-e518-49e1-992e-710c2bf6844f",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f8f44e7b-d583-433c-9b4a-33aa057cd36c",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_2515d9cb-fa99-471d-9c2c-0f31159edf90",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_13664a99-7245-46d4-9cba-277b172a9ffa",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eefbc433-9ac0-468e-a915-bdc859bd9f4a",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_e5ad32bf-44c0-43f8-b17a-6503cbf508c2",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_6bf843a9-91a6-4595-b600-51292c96533b",
+      "department": "utilities",
+      "shift": 1
+    }
+  ],
+  "sunday": [
+    {
+      "worker_id": "w_266fa275-b1fe-466e-93da-bb363aa58c0e",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_9b0bfe06-409e-4866-ab96-21709191b551",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eec83a9b-610a-48fb-9040-e391d9692e58",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_10ab8df4-26ea-4db8-a649-6fefad6a49a2",
+      "department": "registers",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_11c128a5-fa36-49b9-b6ae-eedf066abaa3",
+      "department": "registers",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_5b12c0fe-e518-49e1-992e-710c2bf6844f",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_f8f44e7b-d583-433c-9b4a-33aa057cd36c",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_2515d9cb-fa99-471d-9c2c-0f31159edf90",
+      "department": "utilities",
+      "shift": 1
+    },
+    {
+      "worker_id": "w_13664a99-7245-46d4-9cba-277b172a9ffa",
+      "department": "utilities",
+      "shift": 2
+    },
+    {
+      "worker_id": "w_eefbc433-9ac0-468e-a915-bdc859bd9f4a",
+      "department": "utilities",
+      "shift": 1
+    }
+  ]
+}

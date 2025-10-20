@@ -100,5 +100,6 @@ def build_jsonl_file(df, output_file_path=''):
             f.write(json.dumps(record) + '\n')
 
 df = pd.DataFrame()
-df = build_worker_dataframe_csv('data/workers/workers.jsonl', 'data/schedules/Proposed Schedule.csv')
+df = build_worker_dataframe('data/workers/workers.jsonl', 'data/schedules/schedules_5.json')
+print(df)
 build_jsonl_file(df, 'analysis/proposed_workers_information.jsonl')
