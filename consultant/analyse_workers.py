@@ -32,7 +32,7 @@ def build_worker_dataframe(worker_file_path='', schedule_file_path=''):
     
     # sum up shifts worked per worker
     worked_shifts = worked_shifts.groupby('worker_id', as_index=False).agg({
-        'shifts_worked': 'sum',
+        'shifts_worked': 'count',
     })
 
     # merge workers_df and worked_shifts on worker_id
@@ -65,7 +65,7 @@ def build_worker_dataframe_csv(worker_file_path='', schedule_file_path=''):
     # read schedules from csv file
     schedule_df = pd.read_csv(schedule_file_path)
     schedule_df.drop(columns=['day', 'department'], inplace=True, errors='ignore')
-    schedule_df = schedule_df.groupby(['worker_id'], as_index=False).agg({'shift': 'sum'})
+    schedule_df = schedule_df.groupby(['worker_id'], as_index=False).agg({'shift': 'count'})
 
     # merge workers_df and schedule_df on worker_id
     final_df = workers_df.merge(schedule_df, left_on='worker_id', right_on='worker_id', how='left')
@@ -79,6 +79,7 @@ def build_worker_dataframe_csv(worker_file_path='', schedule_file_path=''):
 
     print(final_df)
     final_df.to_csv('analysis/worker_salary_analysis.csv', index=False)
+
     return final_df
 
 
@@ -101,7 +102,14 @@ def build_jsonl_file(df, output_file_path=''):
             }
             f.write(json.dumps(record) + '\n')
 
+def saved_cost(df):
+    total_cost = df['full_week_salary'].sum()
+    proposed_cost = df['total_salary'].sum()
+    saved = total_cost - proposed_cost
+    print(f"Total Cost: {total_cost}, Proposed Cost: {proposed_cost}, Saved: {saved}")
+    return saved
+
 df = pd.DataFrame()
 df = build_worker_dataframe('data/workers/workers.jsonl', 'data/schedules/schedules_5.json')
-print(df)
+saved_cost(df)
 build_jsonl_file(df, 'analysis/proposed_workers_information.jsonl')
