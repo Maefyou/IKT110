@@ -46,6 +46,7 @@ def build_worker_dataframe(worker_file_path='', schedule_file_path=''):
     final_df['total_salary'] = final_df['salary_per_shift'] * final_df['shifts_worked']
 
     print(final_df)
+    final_df.to_csv('analysis/worker_salary_analysis.csv', index=False)
     return final_df
 
 
@@ -77,6 +78,7 @@ def build_worker_dataframe_csv(worker_file_path='', schedule_file_path=''):
     final_df['total_salary'] = final_df['salary_per_shift'] * final_df['shift']
 
     print(final_df)
+    final_df.to_csv('analysis/worker_salary_analysis.csv', index=False)
     return final_df
 
 
