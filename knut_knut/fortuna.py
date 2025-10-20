@@ -62,7 +62,7 @@ ys_h_2 = np.array([[5.87, 5.83, 5.74, 5.62, 5.48, 16.58, 18.21, 18.49, 17.54, 15
 # change to the size of theta ( 9 ) (for h(x) how many parameters does it have?)
 # params for h: 5
 def train_model(xs, ys, result_queue):
-    n_params = 5
+    n_params = 9
     best_loss_local = float('inf')
     best_theta_local = sample_theta(n_params)
     alpha_start = 1

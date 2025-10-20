@@ -5,7 +5,6 @@ Copilot was used to help writing some functions.
 
 from flask import Flask
 from flask import request
-from flask import send_from_directory
 import pandas as pd
 import datetime as dt
 import matplotlib.pyplot as plt
