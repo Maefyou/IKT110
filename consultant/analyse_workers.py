@@ -1,5 +1,7 @@
 import pandas as pd
 import json
+import matplotlib.pyplot as plt
+
 
 
 def build_worker_dataframe(worker_file_path='', schedule_file_path=''):
@@ -109,7 +111,52 @@ def saved_cost(df):
     print(f"Total Cost: {total_cost}, Proposed Cost: {proposed_cost}, Saved: {saved}")
     return saved
 
-df = pd.DataFrame()
-df = build_worker_dataframe('data/workers/workers.jsonl', 'data/schedules/schedules_5.json')
-saved_cost(df)
-build_jsonl_file(df, 'analysis/proposed_workers_information.jsonl')
+
+df1 = pd.DataFrame()
+df1 = build_worker_dataframe('data/workers/workers_original.jsonl', 'data/schedules/schedules_4.json')
+df2 = pd.DataFrame()
+df2 = build_worker_dataframe('data/workers/workers_original.jsonl', 'data/schedules/schedules_5.json')
+
+
+# cost change by adapting workers salary
+total_cost_1 = df1['full_week_salary'].sum()
+total_cost_2 = df1['total_salary'].sum()
+print(f'adapting strategy cost: {total_cost_1}, {total_cost_2}')
+
+labels = ['Original', 'Adapting Strategy']
+costs = [total_cost_1, total_cost_2]
+
+plt.figure(figsize=(10, 6))
+plt.bar(labels, costs, color=['blue', 'green'])
+plt.xlabel('Dataset')
+plt.ylabel('Total Cost')
+plt.title('Total Worker paying Strategy Cost Comparison')
+plt.tight_layout()
+plt.savefig('analysis/worker_startegy_cost_comparison.png')
+
+
+# cost change by changing schedule
+total_cost_1 = df1['total_salary'].sum()
+total_cost_2 = df2['total_salary'].sum()
+print(f'schedule strategy cost: {total_cost_1}, {total_cost_2}')
+
+labels = ['Last', 'New']
+costs = [total_cost_1, total_cost_2]
+
+plt.figure(figsize=(10, 6))
+plt.bar(labels, costs, color=['blue', 'green'])
+plt.xlabel('Dataset')
+plt.ylabel('Total Cost')
+plt.title('Total Worker schedule-strategy Cost Comparison')
+plt.tight_layout()
+plt.savefig('analysis/worker_shedule_cost_comparison.png')
+
+
+# curiosity
+print(f'#shifts schedule_4 : {df1["shifts_worked"].sum()}, #shifts schedule_5 : {df2["shifts_worked"].sum()}')
+
+# print total salary spending
+print(f'Total salary spending schedule_5: {df2["total_salary"].sum()}')
+
+#saved_cost(df)
+#build_jsonl_file(df, 'analysis/proposed_workers_information.jsonl')
