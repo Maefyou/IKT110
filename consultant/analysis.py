@@ -9,6 +9,11 @@ transactions_dir = "data/transactions"
 prices_dir = "data/prices"
 suppliers_prices_dir = "data/supplier_prices"
 amounts_dir = "data/amounts"
+workers_dir = "data/workers"
+
+analysis_dir = "analysis"
+output_dir = "output"
+
 
 def load_transactions_to_dataframe():
     # Initialize list to store all transaction rows
@@ -124,6 +129,38 @@ def load_product_info_to_dataframe():
     print(df.head(10))
     print(f"\nDataFrame info:")
     print(df.info())
+    
+    return df
+
+
+def load_workers_to_dataframe():
+    '''
+    Loads worker information from workers.jsonl file.
+    
+    Returns:
+        pd.DataFrame: DataFrame with columns: name, worker_id, age, salary
+    '''
+    workers_file = os.path.join(workers_dir, "workers.jsonl")
+    
+    # Read JSONL file (one JSON object per line)
+    workers_list = []
+    with open(workers_file, 'r') as f:
+        for line in f:
+            workers_list.append(json.loads(line.strip()))
+    
+    # Create DataFrame
+    df = pd.DataFrame(workers_list)
+    
+    # Display basic info
+    print(f"Total workers: {len(df)}")
+    print(f"\nFirst few rows:")
+    print(df.head(10))
+    print(f"\nDataFrame info:")
+    print(df.info())
+    print(f"\nAge statistics:")
+    print(df['age'].describe())
+    print(f"\nSalary statistics:")
+    print(df['salary'].describe())
     
     return df
 
@@ -529,6 +566,506 @@ def plot_worker_sales_performance_all(transactions_df=None):
     print(f"Worker performance plots created for all weeks")
 
 
-df = pd.DataFrame()
-df = load_transactions_to_dataframe()
-plot_worker_sales_performance_all(df)
+def calculate_salary_spending(workers_df=None):
+    '''
+    since we are forced to pay all workers their weekly salaray even tho they dont work all week, we just sum up all workers salaries
+    '''
+    if workers_df is None:
+        workers_df = load_workers_to_dataframe()
+    
+    total_salary = workers_df['salary'].sum()
+    print(f"Total weekly salary spending for all workers: ${total_salary:.2f}")
+    return total_salary
+
+
+def calculate_inventory_spending(amounts_dict):
+    '''
+    Calculates the total spending to buy specific amounts of items based on supplier prices.
+    
+    Inputs:
+        amounts_dict (dict): Dictionary with product names as keys and amounts to buy as values.
+                            Example: {"apple": 100, "banana": 50, "orange": 75}
+    
+    Returns:
+        dict: Dictionary containing total spending, per-product breakdown, and summary statistics
+    '''
+    
+    # Load supplier prices
+    supplier_prices_file = os.path.join(suppliers_prices_dir, "supplier_prices.json")
+    with open(supplier_prices_file, 'r') as f:
+        supplier_prices = json.load(f)
+    
+    # Calculate costs for each product
+    product_costs = {}
+    total_spending = 0
+    
+    for product, amount in amounts_dict.items():
+        if product not in supplier_prices:
+            print(f"Warning: Product '{product}' not found in supplier prices. Skipping.")
+            continue
+        
+        price = supplier_prices[product]
+        cost = price * amount
+        
+        product_costs[product] = {
+            'amount': amount,
+            'unit_price': price,
+            'total_cost': cost
+        }
+        
+        total_spending += cost
+    
+    # Create result summary
+    result = {
+        'total_spending': total_spending,
+        'total_items': sum(amounts_dict.values()),
+        'num_products': len(product_costs),
+        'product_breakdown': product_costs
+    }
+    
+    # Print summary
+    print(f"\n{'='*60}")
+    print(f"INVENTORY PURCHASE SPENDING ANALYSIS")
+    print(f"{'='*60}")
+    print(f"Total products to buy: {result['num_products']}")
+    print(f"Total items to buy: {result['total_items']}")
+    print(f"Total spending: ${result['total_spending']:.2f}")
+    print(f"Average cost per item: ${result['total_spending'] / result['total_items']:.2f}" if result['total_items'] > 0 else "N/A")
+    print(f"{'='*60}")
+    
+    # Print breakdown by product (sorted by cost, descending)
+    if product_costs:
+        print("\nProduct breakdown (sorted by total cost):")
+        sorted_products = sorted(product_costs.items(), key=lambda x: x[1]['total_cost'], reverse=True)
+        for product, details in sorted_products:
+            print(f"  {product:20s}: {details['amount']:6d} units × ${details['unit_price']:6.2f} = ${details['total_cost']:8.2f}")
+    
+    print(f"{'='*60}\n")
+    
+    return result
+
+
+def calculate_sell_prices(amounts_dict, desired_profit, workers_df=None):
+    '''
+    Calculates optimal sell prices for products based on costs and desired profit.
+    
+    Inputs:
+        amounts_dict (dict): Dictionary with product names as keys and amounts to buy as values.
+        desired_profit (float): Desired profit amount in dollars.
+        workers_df (pd.DataFrame): DataFrame containing worker information. If None, it will be loaded.
+    
+    Returns:
+        dict: Dictionary containing sell prices for each product and detailed cost breakdown
+    '''
+    
+    # Calculate inventory spending
+    print("Calculating inventory costs...")
+    inventory_result = calculate_inventory_spending(amounts_dict)
+    inventory_cost = inventory_result['total_spending']
+    
+    # Calculate salary spending
+    print("\nCalculating salary costs...")
+    salary_cost = calculate_salary_spending(workers_df)
+    
+    # Total costs
+    total_costs = inventory_cost + salary_cost
+    
+    # Total revenue needed to achieve desired profit
+    total_revenue_needed = total_costs + desired_profit
+    
+    # Load supplier prices
+    supplier_prices_file = os.path.join(suppliers_prices_dir, "supplier_prices.json")
+    with open(supplier_prices_file, 'r') as f:
+        supplier_prices = json.load(f)
+    
+    # Calculate total items
+    total_items = sum(amounts_dict.values())
+    
+    # Calculate average sell price needed per item
+    average_sell_price_needed = total_revenue_needed / total_items if total_items > 0 else 0
+    
+    # Calculate sell prices for each product using iterative approach
+    # Strategy: margin_percentage = supplier_price^(1-n) / supplier_price
+    # This creates inverse relationship: cheap products get higher margins, expensive get lower
+    
+    # Iterative search for optimal n value
+    n = 0.0
+    step = 0.1
+    best_n = 0.0
+    best_sell_prices = {}
+    best_revenue = 0
+    
+    # Start with large steps, then refine
+    for precision_level in [1.0, 0.1, 0.01, 0.001]:
+        step = precision_level
+        found_better = False
+        
+        # Try increasing n until we overshoot, then back off
+        while True:
+            current_n = n
+            sell_prices_temp = {}
+            total_revenue_temp = 0
+            
+            # Calculate prices for this n value
+            for product, amount in amounts_dict.items():
+                supplier_price = supplier_prices.get(product, 0)
+                
+                if supplier_price > 0:
+                    # Calculate margin percentage: supplier_price^(1-n) / supplier_price
+                    margin_percentage = (supplier_price ** (1 - current_n)) / supplier_price
+                    
+                    # Calculate sell price: supplier_price * (1 + margin_percentage)
+                    sell_price = supplier_price * (1 + margin_percentage)
+                else:
+                    sell_price = supplier_price
+                
+                sell_prices_temp[product] = sell_price
+                total_revenue_temp += sell_price * amount
+            
+            # Check if this n value gives us enough revenue
+            if total_revenue_temp >= total_revenue_needed:
+                # We have enough revenue, save this as best and try to lower prices (increase n)
+                best_n = current_n
+                best_sell_prices = sell_prices_temp.copy()
+                best_revenue = total_revenue_temp
+                n += step
+                found_better = True
+            else:
+                # Not enough revenue, we've gone too far
+                # If we found better in this precision level, use the last good value
+                if found_better:
+                    n = best_n
+                else:
+                    # Need to go back and try smaller n
+                    n -= step
+                break
+        
+        # Reset to best_n for next precision level
+        n = best_n
+    
+    # If we never found a solution that meets revenue, use the last attempt
+    if not best_sell_prices:
+        n = 0.0
+        for product, amount in amounts_dict.items():
+            supplier_price = supplier_prices.get(product, 0)
+            if supplier_price > 0:
+                margin_percentage = (supplier_price ** (1 - n)) / supplier_price
+                sell_price = supplier_price * (1 + margin_percentage)
+            else:
+                sell_price = supplier_price
+            best_sell_prices[product] = sell_price
+            best_revenue += sell_price * amount
+    
+    # Round prices and calculate final revenue
+    sell_prices = {}
+    total_revenue = 0
+    for product, price in best_sell_prices.items():
+        sell_prices[product] = round(price, 2)
+        total_revenue += sell_prices[product] * amounts_dict[product]
+    
+    # Calculate actual profit
+    actual_profit = total_revenue - total_costs
+    
+    # Calculate average markup percentage (for display purposes)
+    if inventory_cost > 0:
+        avg_markup_percentage = (total_revenue - inventory_cost) / inventory_cost
+    else:
+        avg_markup_percentage = 0
+    
+    # Store the n value used
+    optimal_n = best_n
+    
+    # Create result
+    result = {
+        'sell_prices': sell_prices,
+        'inventory_cost': inventory_cost,
+        'salary_cost': salary_cost,
+        'total_costs': total_costs,
+        'desired_profit': desired_profit,
+        'total_revenue_needed': total_revenue_needed,
+        'actual_total_revenue': total_revenue,
+        'actual_profit': actual_profit,
+        'markup_percentage': avg_markup_percentage * 100,
+        'total_items': total_items,
+        'average_sell_price': total_revenue / total_items if total_items > 0 else 0,
+        'profit_margin': (actual_profit / total_revenue * 100) if total_revenue > 0 else 0,
+        'optimal_n': optimal_n
+    }
+    
+    # Print detailed summary
+    print(f"\n{'='*70}")
+    print(f"SELL PRICE CALCULATION")
+    print(f"{'='*70}")
+    print(f"\nCOST BREAKDOWN:")
+    print(f"  Inventory costs:           ${inventory_cost:>15,.2f}")
+    print(f"  Salary costs:              ${salary_cost:>15,.2f}")
+    print(f"  {'─'*45}")
+    print(f"  Total costs:               ${total_costs:>15,.2f}")
+    
+    print(f"\nPROFIT TARGETS:")
+    print(f"  Desired profit:            ${desired_profit:>15,.2f}")
+    print(f"  Revenue needed:            ${total_revenue_needed:>15,.2f}")
+    
+    print(f"\nPRICING STRATEGY:")
+    print(f"  Optimal n parameter:       {optimal_n:>14.3f}")
+    print(f"  Average markup:            {avg_markup_percentage * 100:>14.2f}%")
+    print(f"  Formula: margin% = price^(1-n) / price")
+    print(f"  Total items to sell:       {total_items:>15,}")
+    print(f"  Average sell price/item:   ${result['average_sell_price']:>15,.2f}")
+    
+    print(f"\nPROJECTED RESULTS (if all items sell):")
+    print(f"  Total revenue:             ${total_revenue:>15,.2f}")
+    print(f"  Actual profit:             ${actual_profit:>15,.2f}")
+    print(f"  Profit margin:             {result['profit_margin']:>14.2f}%")
+    print(f"  Difference from desired:   ${actual_profit - desired_profit:>15,.2f}")
+    
+    print(f"\n{'='*70}")
+    print(f"SELL PRICES BY PRODUCT:")
+    print(f"{'='*70}")
+    print(f"{'Product':<20} {'Supplier $':>12} {'Sell $':>12} {'Markup':>12} {'Quantity':>12}")
+    print(f"{'-'*70}")
+    
+    for product in sorted(sell_prices.keys()):
+        supplier_price = supplier_prices.get(product, 0)
+        sell_price = sell_prices[product]
+        markup = ((sell_price - supplier_price) / supplier_price * 100) if supplier_price > 0 else 0
+        quantity = amounts_dict[product]
+        print(f"{product:<20} ${supplier_price:>11.2f} ${sell_price:>11.2f} {markup:>11.2f}% {quantity:>12,}")
+    
+    print(f"{'='*70}\n")
+    
+    return result
+
+
+def write_amounts_and_prices(amounts_dict, prices_dict):
+    '''
+    Writes amounts and prices dictionaries to JSON files in the output directory.
+    
+    Inputs:
+        amounts_dict (dict): Dictionary with product names as keys and amounts as values.
+        prices_dict (dict): Dictionary with product names as keys and prices as values.
+    
+    Returns:
+        tuple: Paths to the created files (amounts_file, prices_file)
+    '''
+    
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Write amounts to new_amounts.json
+    amounts_file = os.path.join(output_dir, "new_amounts.json")
+    with open(amounts_file, 'w') as f:
+        json.dump(amounts_dict, f, indent=2)
+    print(f"Amounts saved to {amounts_file}")
+    
+    # Write prices to new_prices.json
+    prices_file = os.path.join(output_dir, "new_prices.json")
+    with open(prices_file, 'w') as f:
+        json.dump(prices_dict, f, indent=2)
+    print(f"Prices saved to {prices_file}")
+    
+    return amounts_file, prices_file
+
+
+def find_products_sold_with_remaining_inventory(transactions_df=None, product_info_df=None):
+    '''
+    Creates a DataFrame containing rows for days where a product was sold 
+    and there was still inventory remaining at the start of the day.
+    
+    Inputs:
+        transactions_df (pd.DataFrame): DataFrame containing transaction data. If None, it will be loaded.
+        product_info_df (pd.DataFrame): DataFrame containing product info. If None, it will be loaded.
+    
+    Returns:
+        pd.DataFrame: DataFrame with columns: week, day, product, amount_sold, remaining_inventory
+    '''
+    
+    if transactions_df is None:
+        transactions_df = load_transactions_to_dataframe()
+    
+    if product_info_df is None:
+        product_info_df = load_product_info_to_dataframe()
+    
+    # Group transactions by week, day, and product to get daily sales
+    daily_sales = transactions_df.groupby(['week', 'day', 'product'])['amount'].sum().reset_index()
+    daily_sales.columns = ['week', 'day', 'product', 'amount_sold']
+    
+    # Get initial inventory for each product per week
+    inventory_map = product_info_df.set_index(['week', 'product'])['amount_bought'].to_dict()
+    
+    # List to store results
+    results = []
+    
+    # Process each week
+    for week in sorted(transactions_df['week'].unique()):
+        week_sales = daily_sales[daily_sales['week'] == week].copy()
+        
+        # Get unique products in this week
+        products = week_sales['product'].unique()
+        
+        for product in products:
+            # Get initial inventory for this product in this week
+            initial_inventory = inventory_map.get((week, product), 0)
+            
+            # Get sales for this product, sorted by day
+            product_sales = week_sales[week_sales['product'] == product].sort_values('day')
+            
+            # Track cumulative sales
+            cumulative_sales = 0
+            
+            for _, row in product_sales.iterrows():
+                day = row['day']
+                amount_sold = row['amount_sold']
+                
+                # Add to cumulative sales
+                cumulative_sales += amount_sold
+                
+                # Calculate remaining inventory at end of this day
+                remaining_inventory = initial_inventory - cumulative_sales
+                current_inventory = initial_inventory - (cumulative_sales - amount_sold)
+                
+                # Only include if product was sold (amount_sold > 0) and current inventory > 0
+                if amount_sold > 0 and current_inventory > 0:
+                    results.append({
+                        'week': week,
+                        'day': day,
+                        'product': product,
+                        'amount_sold': amount_sold,
+                        'remaining_inventory': remaining_inventory
+                    })
+    
+    # Create DataFrame
+    df = pd.DataFrame(results)
+    
+    # Display basic info
+    if not df.empty:
+        print(f"\n{'='*70}")
+        print(f"PRODUCTS SOLD WITH REMAINING INVENTORY")
+        print(f"{'='*70}")
+        print(f"Total occurrences: {len(df)}")
+        print(f"Unique weeks: {sorted(df['week'].unique())}")
+        print(f"Unique products: {sorted(df['product'].unique())}")
+        print(f"\nFirst 10 rows:")
+        print(df.head(10))
+
+        
+    df = df.groupby(['week', 'product']).agg(
+        avg_amount_sold=('amount_sold', 'mean'),
+        total_amount_sold=('amount_sold', 'sum'),
+        days_with_sales=('day', 'count'),
+        remaining_inventory=('remaining_inventory', 'min')
+    ).reset_index()
+    return df
+
+
+def estimate_purchase_amounts(transactions_df=None, product_info_df=None, target_week=None, days_to_stock=7):
+    '''
+    Estimates the amount to buy for each product based on average daily sales.
+    Uses data from find_products_sold_with_remaining_inventory.
+    
+    Inputs:
+        transactions_df (pd.DataFrame): DataFrame containing transaction data. If None, it will be loaded.
+        product_info_df (pd.DataFrame): DataFrame containing product info. If None, it will be loaded.
+        target_week (int): If specified, uses only that week's data. If None, uses all weeks.
+        days_to_stock (int): Number of days to stock for (default: 7 for a full week).
+    
+    Returns:
+        dict: Dictionary with product names as keys and recommended purchase amounts as values
+    '''
+    
+    # Get the dataframe with sales and remaining inventory data
+    df = find_products_sold_with_remaining_inventory(transactions_df, product_info_df)
+    
+    if df.empty:
+        print("No data available to estimate purchase amounts.")
+        return {}
+    
+    # Filter by target week if specified
+    if target_week is not None:
+        df = df[df['week'] == target_week]
+        if df.empty:
+            print(f"No data available for week {target_week}")
+            return {}
+    
+    # Calculate purchase amounts based on average daily sales
+    purchase_amounts = {}
+    
+    print(f"\n{'='*70}")
+    print(f"ESTIMATED PURCHASE AMOUNTS")
+    print(f"{'='*70}")
+    print(f"Based on: {'Week ' + str(target_week) if target_week is not None else 'All weeks'}")
+    print(f"Stocking for: {days_to_stock} days")
+    print(f"\n{'Product':<20} {'Avg/Day':>12} {'Days Sold':>12} {'Recommended':>12}")
+    print(f"{'-'*70}")
+    
+    for _, row in df.iterrows():
+        product = row['product']
+        avg_daily = row['avg_amount_sold']
+        days_with_sales = row['days_with_sales']
+        
+        # Estimate: avg daily sales × days to stock for
+        estimated = int(avg_daily * days_to_stock)
+        
+        purchase_amounts[product] = estimated
+        
+        print(f"{product:<20} {avg_daily:>12.1f} {days_with_sales:>12} {estimated:>12}")
+    
+    total_items = sum(purchase_amounts.values())
+    print(f"{'-'*70}")
+    print(f"{'TOTAL':<20} {'':<12} {'':<12} {total_items:>12}")
+    print(f"{'='*70}\n")
+    
+    return purchase_amounts
+
+
+def create_schedule():
+    workers = load_workers_to_dataframe()
+
+    # distribute all workers evenly across days and shifts
+    schedule = dict()
+    days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+    shifts = [1, 2]
+    departments = ['registers', 'utilities']
+    worker_index = 0
+    
+    total_shifts_assigned = 0
+    for day in days:
+        schedule[day] = []
+        for shift in shifts:
+            for department in departments:
+                # assign 2 workers per department per shift
+                for _ in range(2):
+                    total_shifts_assigned += 1
+                    if worker_index >= len(workers):
+                        worker_index = 0
+                    worker_id = workers.iloc[worker_index]['worker_id']
+                    schedule[day].append({
+                        "worker_id": worker_id,
+                        "department": department,
+                        "shift": shift
+                    })
+                    worker_index += 1
+    
+    # write schedule to json file
+    os.makedirs(output_dir, exist_ok=True)
+    schedule_file = os.path.join(output_dir, "new_schedule.json")
+    with open(schedule_file, 'w') as f:
+        json.dump(schedule, f, indent=2)
+    print(f"New schedule created and saved to {schedule_file}")
+    print(f'total workers: {len(workers)}')
+    print(f"Total shifts assigned: {total_shifts_assigned}")
+
+    return True
+
+
+amounts = estimate_purchase_amounts(days_to_stock=7, target_week=5)
+
+print(amounts)
+
+# increase amount to reduce margin = amazon strategy
+for product in amounts:
+    amounts[product] = int(amounts[product] * 1.5)
+
+print(amounts)
+sell_prices = calculate_sell_prices(amounts, desired_profit=5000)
+write_amounts_and_prices(amounts, sell_prices['sell_prices'])
