@@ -1026,7 +1026,7 @@ def create_schedule():
     days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
     shifts = [1, 2]
     departments = ['registers', 'utilities']
-    workers_per_department_per_shift = 4
+    workers_per_department_per_shift = 8
     worker_index = 0
     
     total_shifts_assigned = 0
