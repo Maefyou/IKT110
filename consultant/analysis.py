@@ -1026,6 +1026,7 @@ def create_schedule():
     days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
     shifts = [1, 2]
     departments = ['registers', 'utilities']
+    workers_per_department_per_shift = 4
     worker_index = 0
     
     total_shifts_assigned = 0
@@ -1033,8 +1034,8 @@ def create_schedule():
         schedule[day] = []
         for shift in shifts:
             for department in departments:
-                # assign 2 workers per department per shift
-                for _ in range(2):
+                # assign workers per department per shift
+                for _ in range(workers_per_department_per_shift):
                     total_shifts_assigned += 1
                     if worker_index >= len(workers):
                         worker_index = 0
@@ -1057,6 +1058,8 @@ def create_schedule():
 
     return True
 
+
+create_schedule()
 
 amounts = estimate_purchase_amounts(days_to_stock=7, target_week=5)
 
