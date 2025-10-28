@@ -212,7 +212,8 @@ def plot_products_week_daily_sells(df = None, week = 5):
 
     
     # Plot every product alone in its own graph
-    os.makedirs('analysis/daily_sales_week', exist_ok=True)
+    subdir_path = f'analysis/daily_sales_week_{week}'
+    os.makedirs(subdir_path, exist_ok=True)
     
     # Load product info to get initial inventory amounts
     product_info_df = load_product_info_to_dataframe()
@@ -273,7 +274,7 @@ def plot_products_week_daily_sells(df = None, week = 5):
         
         ax1.grid(True, alpha=0.3)
         fig.tight_layout()
-        plt.savefig(f'analysis/daily_sales_week/daily_sales_week_{product}.png')
+        plt.savefig(f'{subdir_path}/daily_sales_week_{product}.png')
         plt.close(fig)
 
 
@@ -1071,3 +1072,7 @@ for product in amounts:
 print(amounts)
 sell_prices = calculate_sell_prices(amounts, desired_profit=50000)
 write_amounts_and_prices(amounts, sell_prices['sell_prices'])
+
+plot_worker_sales_performance_week(week=5)
+for week in range(1, 6):
+    plot_products_week_daily_sells(week=week)
