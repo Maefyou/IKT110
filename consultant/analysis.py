@@ -712,7 +712,7 @@ def calculate_sell_prices(amounts_dict, desired_profit, workers_df=None):
                 
                 if supplier_price > 0:
                     # Calculate margin percentage: supplier_price^(1-n) / supplier_price
-                    margin_percentage = (supplier_price ** (1 - current_n)) / supplier_price
+                    margin_percentage = ((supplier_price) ** (1 - current_n)) / supplier_price
                     
                     # Calculate sell price: supplier_price * (1 + margin_percentage)
                     sell_price = supplier_price * (1 + margin_percentage)
@@ -1018,7 +1018,7 @@ def estimate_purchase_amounts(transactions_df=None, product_info_df=None, target
     return purchase_amounts
 
 
-def create_schedule():
+def create_schedule(workers_per_department_per_shift=10):
     workers = load_workers_to_dataframe()
 
     # distribute all workers evenly across days and shifts
@@ -1026,7 +1026,6 @@ def create_schedule():
     days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
     shifts = [1, 2]
     departments = ['registers', 'utilities']
-    workers_per_department_per_shift = 8
     worker_index = 0
     
     total_shifts_assigned = 0
@@ -1059,7 +1058,7 @@ def create_schedule():
     return True
 
 
-create_schedule()
+create_schedule(10)
 
 amounts = estimate_purchase_amounts(days_to_stock=7, target_week=5)
 
@@ -1067,8 +1066,8 @@ print(amounts)
 
 # increase amount to reduce margin = amazon strategy
 for product in amounts:
-    amounts[product] = int(amounts[product] * 1.5)
+    amounts[product] = max(1500,int(amounts[product] * 2.5))
 
 print(amounts)
-sell_prices = calculate_sell_prices(amounts, desired_profit=5000)
+sell_prices = calculate_sell_prices(amounts, desired_profit=50000)
 write_amounts_and_prices(amounts, sell_prices['sell_prices'])
