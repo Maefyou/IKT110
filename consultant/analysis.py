@@ -1059,20 +1059,142 @@ def create_schedule(workers_per_department_per_shift=10):
     return True
 
 
+def analyze_weekly_product_performance(transactions_df=None, product_info_df=None):
+    '''
+    Analyzes financial performance for each week and product.
+    
+    Inputs:
+        transactions_df (pd.DataFrame): DataFrame containing transaction data. If None, it will be loaded.
+        product_info_df (pd.DataFrame): DataFrame containing product info (amounts and prices). If None, it will be loaded.
+    
+    Returns:
+        pd.DataFrame: DataFrame with columns:
+            - week: Week number
+            - product: Product name
+            - amount_bought: Amount purchased from supplier
+            - supplier_price: Price per unit from supplier
+            - amount_sold: Total amount sold during the week
+            - sell_price: Price per unit sold to customers
+            - inventory_spending: Total cost to purchase inventory (amount_bought × supplier_price)
+            - revenue: Total revenue from sales (amount_sold × sell_price)
+            - profit: Revenue minus inventory spending
+            - inventory_wasted: Amount of inventory not sold (amount_bought - amount_sold)
+            - inventory_wasted_worth: Value of wasted inventory at 25% of supplier price
+    '''
+    
+    if transactions_df is None:
+        transactions_df = load_transactions_to_dataframe()
+    
+    if product_info_df is None:
+        product_info_df = load_product_info_to_dataframe()
+    
+    # Load supplier prices (constant across all weeks)
+    supplier_prices_file = os.path.join(suppliers_prices_dir, "supplier_prices.json")
+    with open(supplier_prices_file, 'r') as f:
+        supplier_prices = json.load(f)
+    
+    # Calculate total amount sold per week per product
+    weekly_sales = transactions_df.groupby(['week', 'product'])['amount'].sum().reset_index()
+    weekly_sales.columns = ['week', 'product', 'amount_sold']
+    
+    # Merge with product info (amounts bought and sell prices)
+    # product_info_df has: week, product, amount_bought, supplier_price, sell_price
+    merged_df = pd.merge(
+        product_info_df,
+        weekly_sales,
+        on=['week', 'product'],
+        how='left'
+    )
+    
+    # Fill NaN values in amount_sold with 0 (products that were bought but not sold)
+    merged_df['amount_sold'] = merged_df['amount_sold'].fillna(0)
+    
+    # Calculate financial metrics
+    merged_df['inventory_spending'] = merged_df['amount_bought'] * merged_df['supplier_price']
+    merged_df['revenue'] = merged_df['amount_sold'] * merged_df['sell_price']
+    merged_df['profit'] = merged_df['revenue'] - merged_df['inventory_spending']
+    merged_df['inventory_wasted'] = merged_df['amount_bought'] - merged_df['amount_sold']
+    merged_df['inventory_wasted_worth'] = merged_df['inventory_wasted'] * merged_df['supplier_price']
+    
+    # Ensure inventory_wasted is not negative (shouldn't happen, but just in case)
+    merged_df['inventory_wasted'] = merged_df['inventory_wasted'].clip(lower=0)
+    merged_df['inventory_wasted_worth'] = merged_df['inventory_wasted_worth'].clip(lower=0)
+    
+    # Select and order columns
+    result_df = merged_df[[
+        'week',
+        'product',
+        'amount_bought',
+        'supplier_price',
+        'amount_sold',
+        'sell_price',
+        'inventory_spending',
+        'revenue',
+        'profit',
+        'inventory_wasted',
+        'inventory_wasted_worth'
+    ]]
+    
+    # Sort by week and product
+    result_df = result_df.sort_values(['week', 'product']).reset_index(drop=True)
+    
+    # Print summary
+    print(f"\n{'='*80}")
+    print(f"WEEKLY PRODUCT PERFORMANCE ANALYSIS")
+    print(f"{'='*80}")
+    print(f"Total records: {len(result_df)}")
+    print(f"Weeks analyzed: {sorted(result_df['week'].unique())}")
+    print(f"Products: {sorted(result_df['product'].unique())}")
+    
+    print(f"\n{'='*80}")
+    print(f"OVERALL SUMMARY:")
+    print(f"{'='*80}")
+    print(f"Total inventory spending:      ${result_df['inventory_spending'].sum():>15,.2f}")
+    print(f"Total revenue:                 ${result_df['revenue'].sum():>15,.2f}")
+    print(f"Total profit:                  ${result_df['profit'].sum():>15,.2f}")
+    print(f"Total inventory wasted:        {result_df['inventory_wasted'].sum():>15,.0f} units")
+    print(f"Total wasted inventory worth:  ${result_df['inventory_wasted_worth'].sum():>15,.2f}")
+    
+    # Summary by week
+    print(f"\n{'='*80}")
+    print(f"SUMMARY BY WEEK:")
+    print(f"{'='*80}")
+    weekly_summary = result_df.groupby('week').agg({
+        'inventory_spending': 'sum',
+        'revenue': 'sum',
+        'profit': 'sum',
+        'inventory_wasted': 'sum',
+        'inventory_wasted_worth': 'sum'
+    }).reset_index()
+    
+    print(f"\n{'Week':>6} {'Spending':>15} {'Revenue':>15} {'Profit':>15} {'Wasted':>10} {'Wasted $':>15}")
+    print(f"{'-'*80}")
+    for _, row in weekly_summary.iterrows():
+        print(f"{row['week']:>6} ${row['inventory_spending']:>14,.2f} ${row['revenue']:>14,.2f} ${row['profit']:>14,.2f} {row['inventory_wasted']:>9,.0f} {row['inventory_wasted_worth']:>14,.2f}")
+    
+    print(f"\n{'='*80}")
+    print(f"First 10 rows of detailed data:")
+    print(result_df.tail(13).to_string())
+    print(f"{'='*80}\n")
+    
+    return result_df
+
+
 create_schedule(10)
 
 amounts = estimate_purchase_amounts(days_to_stock=7, target_week=5)
 
 print(amounts)
 
-# increase amount to reduce margin = amazon strategy
-for product in amounts:
-    amounts[product] = max(1500,int(amounts[product] * 2.5))
-
-print(amounts)
 sell_prices = calculate_sell_prices(amounts, desired_profit=50000)
 write_amounts_and_prices(amounts, sell_prices['sell_prices'])
 
-plot_worker_sales_performance_week(week=5)
-for week in range(1, 6):
-    plot_products_week_daily_sells(week=week)
+plot_products_week_daily_sells(week=6)
+
+# Analyze all weeks
+performance_df = analyze_weekly_product_performance()
+
+# Or pass existing dataframes to avoid reloading
+transactions_df = load_transactions_to_dataframe()
+product_info_df = load_product_info_to_dataframe()
+performance_df = analyze_weekly_product_performance(transactions_df, product_info_df)
