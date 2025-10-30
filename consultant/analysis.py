@@ -1180,21 +1180,64 @@ def analyze_weekly_product_performance(transactions_df=None, product_info_df=Non
     return result_df
 
 
-create_schedule(10)
+def plot_transactions_per_week(transactions_df=None):
+    '''
+    Counts the total number of transactions per week and plots it as a line plot.
+    
+    Inputs:
+        transactions_df (pd.DataFrame): DataFrame containing transaction data. If None, it will be loaded.
+    
+    Returns:
+        pd.DataFrame: DataFrame with columns: week, transaction_count
+    '''
+    
+    if transactions_df is None:
+        transactions_df = load_transactions_to_dataframe()
+    
+    # Count unique transactions per week
+    # Each row in the dataframe represents a product in a transaction
+    # We need to group by week, customer_id, and day to count unique transactions
+    transactions_per_week = transactions_df.groupby('week').size().reset_index(name='transaction_count')
+    
+    # Print summary
+    print(f"\n{'='*50}")
+    print(f"TRANSACTIONS PER WEEK")
+    print(f"{'='*50}")
+    print(f"{'Week':>6} {'Transaction Count':>20}")
+    print(f"{'-'*50}")
+    
+    for _, row in transactions_per_week.iterrows():
+        print(f"{row['week']:>6} {row['transaction_count']:>20,}")
+    
+    total = transactions_per_week['transaction_count'].sum()
+    print(f"{'-'*50}")
+    print(f"{'TOTAL':>6} {total:>20,}")
+    print(f"{'='*50}\n")
+    
+    # Create line plot
+    plt.style.use('dark_background')
+    plt.figure(figsize=(12, 6))
+    
+    plt.plot(transactions_per_week['week'], transactions_per_week['transaction_count'], 
+             marker='o', linewidth=2, markersize=8, color='tab:cyan')
+    
+    plt.xlabel('Week')
+    plt.ylabel('Transaction Count')
+    plt.title('Total Transactions per Week')
+    plt.grid(True, alpha=0.3)
+    plt.xticks(transactions_per_week['week'])
+    plt.ylim(bottom=0)
+    plt.tight_layout()
+    
+    # Save the plot
+    os.makedirs(analysis_dir, exist_ok=True)
+    plt.savefig(f'{analysis_dir}/transactions_per_week.png')
+    plt.close()
+    
+    print(f"Line plot saved to {analysis_dir}/transactions_per_week.png")
+    
+    return transactions_per_week
 
-amounts = estimate_purchase_amounts(days_to_stock=7, target_week=5)
 
-print(amounts)
 
-sell_prices = calculate_sell_prices(amounts, desired_profit=50000)
-write_amounts_and_prices(amounts, sell_prices['sell_prices'])
-
-plot_products_week_daily_sells(week=6)
-
-# Analyze all weeks
-performance_df = analyze_weekly_product_performance()
-
-# Or pass existing dataframes to avoid reloading
-transactions_df = load_transactions_to_dataframe()
-product_info_df = load_product_info_to_dataframe()
-performance_df = analyze_weekly_product_performance(transactions_df, product_info_df)
+plot_transactions_per_week()
