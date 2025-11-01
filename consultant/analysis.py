@@ -646,6 +646,79 @@ def calculate_inventory_spending(amounts_dict):
     return result
 
 
+def calculate_profit_if_everything_sells(amounts_dict, prices_dict, workers_df=None):
+    '''
+    Calculates the profit if all inventory sells at the given prices.
+    
+    Inputs:
+        amounts_dict (dict): Dictionary with product names as keys and amounts to buy as values.
+        prices_dict (dict): Dictionary with product names as keys and sell prices as values.
+        workers_df (pd.DataFrame): DataFrame containing worker information. If None, it will be loaded.
+    
+    Returns:
+        dict: Dictionary containing profit breakdown with keys:
+            - inventory_cost: Total cost to purchase inventory
+            - salary_cost: Total weekly salary costs
+            - total_costs: Sum of inventory and salary costs
+            - total_revenue: Total revenue if everything sells
+            - profit: Total profit (revenue - costs)
+            - profit_margin: Profit as percentage of revenue
+    '''
+    
+    # Calculate inventory spending
+    print("Calculating inventory costs...")
+    inventory_result = calculate_inventory_spending(amounts_dict)
+    inventory_cost = inventory_result['total_spending']
+    
+    # Calculate salary spending
+    print("\nCalculating salary costs...")
+    salary_cost = calculate_salary_spending(workers_df)
+    
+    # Calculate total revenue if everything sells
+    total_revenue = 0
+    for product, amount in amounts_dict.items():
+        if product in prices_dict:
+            price = prices_dict[product]
+            total_revenue += amount * price
+        else:
+            print(f"Warning: Product '{product}' not found in prices. Skipping revenue calculation.")
+    
+    # Calculate total costs and profit
+    total_costs = inventory_cost + salary_cost
+    profit = total_revenue - total_costs
+    profit_margin = (profit / total_revenue * 100) if total_revenue > 0 else 0
+    
+    # Create result
+    result = {
+        'inventory_cost': inventory_cost,
+        'salary_cost': salary_cost,
+        'total_costs': total_costs,
+        'total_revenue': total_revenue,
+        'profit': profit,
+        'profit_margin': profit_margin
+    }
+    
+    # Print detailed summary
+    print(f"\n{'='*70}")
+    print(f"PROFIT CALCULATION (IF EVERYTHING SELLS)")
+    print(f"{'='*70}")
+    print(f"\nCOSTS:")
+    print(f"  Inventory costs:           ${inventory_cost:>15,.2f}")
+    print(f"  Salary costs:              ${salary_cost:>15,.2f}")
+    print(f"  {'─'*45}")
+    print(f"  Total costs:               ${total_costs:>15,.2f}")
+    
+    print(f"\nREVENUE (if everything sells):")
+    print(f"  Total revenue:             ${total_revenue:>15,.2f}")
+    
+    print(f"\nPROFIT:")
+    print(f"  Profit:                    ${profit:>15,.2f}")
+    print(f"  Profit margin:             {profit_margin:>14.2f}%")
+    print(f"{'='*70}\n")
+    
+    return result
+
+
 def calculate_sell_prices(amounts_dict, desired_profit, workers_df=None):
     '''
     Calculates optimal sell prices for products based on costs and desired profit.
@@ -1239,5 +1312,257 @@ def plot_transactions_per_week(transactions_df=None):
     return transactions_per_week
 
 
+def plot_product_inventory_week(product_info_df=None, transactions_df=None, week=5, compare_with_previous=False):
+    '''
+    Creates a grouped bar plot showing the amount bought and amount sold of each product for a specific week.
+    
+    Inputs:
+        product_info_df (pd.DataFrame): DataFrame containing product info. If None, it will be loaded.
+        transactions_df (pd.DataFrame): DataFrame containing transaction data. If None, it will be loaded.
+        week (int): The week number to analyze (default: 5).
+        compare_with_previous (bool): If True, also plot previous week's data for comparison (default: False).
+    
+    Outputs:
+        A grouped bar plot showing the amount bought vs amount sold for each product in the specified week.
+        If compare_with_previous is True, also shows previous week's data.
+    '''
+    
+    if product_info_df is None:
+        product_info_df = load_product_info_to_dataframe()
+    
+    if transactions_df is None:
+        transactions_df = load_transactions_to_dataframe()
+    
+    # Filter data for the specified week
+    week_data = product_info_df[product_info_df['week'] == week].copy()
+    
+    if week_data.empty:
+        print(f"No data available for week {week}")
+        return
+    
+    # Calculate total amount sold per product for this week
+    week_sales = transactions_df[transactions_df['week'] == week].groupby('product')['amount'].sum().reset_index()
+    week_sales.columns = ['product', 'amount_sold']
+    
+    # Merge bought and sold data
+    week_data = week_data.merge(week_sales, on='product', how='left')
+    week_data['amount_sold'] = week_data['amount_sold'].fillna(0)
+    
+    # If comparing with previous week, load that data too
+    prev_week_data = None
+    if compare_with_previous and week > 0:
+        prev_week = week - 1
+        prev_week_data = product_info_df[product_info_df['week'] == prev_week].copy()
+        
+        if not prev_week_data.empty:
+            # Calculate previous week sales
+            prev_week_sales = transactions_df[transactions_df['week'] == prev_week].groupby('product')['amount'].sum().reset_index()
+            prev_week_sales.columns = ['product', 'prev_amount_sold']
+            
+            # Merge with previous week data
+            prev_week_data = prev_week_data[['product', 'amount_bought']].rename(columns={'amount_bought': 'prev_amount_bought'})
+            prev_week_data = prev_week_data.merge(prev_week_sales, on='product', how='left')
+            prev_week_data['prev_amount_sold'] = prev_week_data['prev_amount_sold'].fillna(0)
+            
+            # Merge previous week data with current week data
+            week_data = week_data.merge(prev_week_data, on='product', how='left')
+            week_data['prev_amount_bought'] = week_data['prev_amount_bought'].fillna(0)
+            week_data['prev_amount_sold'] = week_data['prev_amount_sold'].fillna(0)
+    
+    # Sort by amount_bought for better visualization
+    week_data = week_data.sort_values('amount_bought', ascending=False)
+    
+    # Create grouped bar plot
+    plt.style.use('dark_background')
+    fig, ax = plt.subplots(figsize=(16, 7))
+    
+    x = range(len(week_data))
+    
+    if compare_with_previous and prev_week_data is not None and not prev_week_data.empty:
+        # Four bars per product: prev bought, prev sold, current bought, current sold
+        width = 0.2
+        
+        bars1 = ax.bar([i - 1.5*width for i in x], week_data['prev_amount_bought'], 
+                        width, label=f'Week {week-1} Bought', color='tab:green', alpha=0.5)
+        bars2 = ax.bar([i - 0.5*width for i in x], week_data['prev_amount_sold'], 
+                        width, label=f'Week {week-1} Sold', color='tab:blue', alpha=0.5)
+        bars3 = ax.bar([i + 0.5*width for i in x], week_data['amount_bought'], 
+                        width, label=f'Week {week} Bought', color='tab:green', alpha=0.8)
+        bars4 = ax.bar([i + 1.5*width for i in x], week_data['amount_sold'], 
+                        width, label=f'Week {week} Sold', color='tab:blue', alpha=0.8)
+        
+        # Add value labels on top of bars
+        all_bars = [bars1, bars2, bars3, bars4]
+        for bars in all_bars:
+            for bar in bars:
+                height = bar.get_height()
+                if height > 0:  # Only label non-zero bars
+                    ax.text(bar.get_x() + bar.get_width()/2., height,
+                            f'{int(height)}',
+                            ha='center', va='bottom', fontsize=7)
+        
+        title = f'Product Inventory Comparison: Week {week-1} vs Week {week}'
+    else:
+        # Two bars per product: bought and sold
+        width = 0.35
+        
+        bars1 = ax.bar([i - width/2 for i in x], week_data['amount_bought'], 
+                        width, label='Amount Bought', color='tab:green', alpha=0.8)
+        bars2 = ax.bar([i + width/2 for i in x], week_data['amount_sold'], 
+                        width, label='Amount Sold', color='tab:blue', alpha=0.8)
+        
+        # Add value labels on top of bars
+        for bar in bars1:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height,
+                    f'{int(height)}',
+                    ha='center', va='bottom', fontsize=8)
+        
+        for bar in bars2:
+            height = bar.get_height()
+            ax.text(bar.get_x() + bar.get_width()/2., height,
+                    f'{int(height)}',
+                    ha='center', va='bottom', fontsize=8)
+        
+        title = f'Product Inventory: Bought vs Sold - Week {week}'
+    
+    ax.set_xlabel('Product')
+    ax.set_ylabel('Amount')
+    ax.set_title(title)
+    ax.set_xticks(x)
+    ax.set_xticklabels(week_data['product'], rotation=45, ha='right')
+    ax.set_ylim(bottom=0)
+    ax.legend()
+    plt.grid(True, alpha=0.3, axis='y')
+    plt.tight_layout()
+    
+    # Save the plot
+    os.makedirs(analysis_dir, exist_ok=True)
+    filename_suffix = '_comparison' if compare_with_previous else ''
+    plt.savefig(f'{analysis_dir}/product_inventory_week_{week}{filename_suffix}.png')
+    plt.close(fig)
+    
+    # Print summary
+    print(f"\n{'='*90}")
+    if compare_with_previous and prev_week_data is not None and not prev_week_data.empty:
+        print(f"PRODUCT INVENTORY COMPARISON - WEEK {week-1} vs WEEK {week}")
+        print(f"{'='*90}")
+        print(f"{'Product':<20} {'W{} Bought'.format(week-1):>12} {'W{} Sold'.format(week-1):>12} {'W{} Bought'.format(week):>12} {'W{} Sold'.format(week):>12} {'Change':>15}")
+        print(f"{'-'*90}")
+        
+        for _, row in week_data.iterrows():
+            change_bought = row['amount_bought'] - row['prev_amount_bought']
+            change_sold = row['amount_sold'] - row['prev_amount_sold']
+            change_str = f"B:{change_bought:+.0f} S:{change_sold:+.0f}"
+            print(f"{row['product']:<20} {row['prev_amount_bought']:>12,.0f} {row['prev_amount_sold']:>12,.0f} "
+                  f"{row['amount_bought']:>12,.0f} {row['amount_sold']:>12,.0f} {change_str:>15}")
+    else:
+        print(f"PRODUCT INVENTORY - WEEK {week}")
+        print(f"{'='*90}")
+        print(f"{'Product':<20} {'Amount Bought':>15} {'Amount Sold':>15} {'Remaining':>15}")
+        print(f"{'-'*90}")
+        
+        for _, row in week_data.iterrows():
+            remaining = row['amount_bought'] - row['amount_sold']
+            print(f"{row['product']:<20} {row['amount_bought']:>15,.0f} {row['amount_sold']:>15,.0f} {remaining:>15,.0f}")
+        
+        total_bought = week_data['amount_bought'].sum()
+        total_sold = week_data['amount_sold'].sum()
+        total_remaining = total_bought - total_sold
+        print(f"{'-'*90}")
+        print(f"{'TOTAL':<20} {total_bought:>15,.0f} {total_sold:>15,.0f} {total_remaining:>15,.0f}")
+    
+    print(f"{'='*90}\n")
+    
+    filename_suffix = '_comparison' if compare_with_previous else ''
+    print(f"Bar plot saved to {analysis_dir}/product_inventory_week_{week}{filename_suffix}.png")
+    
+    # Create growth rate plot if comparing with previous week
+    if compare_with_previous and prev_week_data is not None and not prev_week_data.empty and week > 0:
+        # Calculate growth in amount sold
+        growth_data = []
+        for _, row in week_data.iterrows():
+            prev_sold = row['prev_amount_sold']
+            curr_sold = row['amount_sold']
+            
+            # Calculate absolute growth and growth rate
+            absolute_growth = curr_sold - prev_sold
+            
+            # Calculate growth rate (handle division by zero)
+            if prev_sold > 0:
+                growth_rate = (absolute_growth / prev_sold) * 100
+            else:
+                # If previous week had 0 sales and current week has sales, show as 100% growth
+                growth_rate = 100.0 if curr_sold > 0 else 0.0
+            
+            growth_data.append({
+                'product': row['product'],
+                'absolute_growth': absolute_growth,
+                'growth_rate': growth_rate,
+                'prev_sold': prev_sold,
+                'curr_sold': curr_sold
+            })
+        
+        # Create DataFrame and sort by growth rate (ascending, so highest growth is on top when plotted)
+        growth_df = pd.DataFrame(growth_data)
+        growth_df = growth_df.sort_values('growth_rate', ascending=True)
+        
+        # Create growth rate bar plot
+        plt.style.use('dark_background')
+        fig, ax = plt.subplots(figsize=(14, 8))
+        
+        # Create bars with colors based on positive/negative growth
+        colors = ['tab:red' if g < 0 else 'tab:green' for g in growth_df['growth_rate']]
+        bars = ax.barh(range(len(growth_df)), growth_df['growth_rate'], color=colors, alpha=0.8)
+        
+        # Add value labels
+        for i, (bar, row) in enumerate(zip(bars, growth_df.iterrows())):
+            width = bar.get_width()
+            _, data = row
+            label = f"{data['growth_rate']:.1f}% ({data['absolute_growth']:+.0f})"
+            
+            # Position label based on positive or negative value
+            if width >= 0:
+                ax.text(width, bar.get_y() + bar.get_height()/2., f' {label}',
+                       ha='left', va='center', fontsize=8)
+            else:
+                ax.text(width, bar.get_y() + bar.get_height()/2., f'{label} ',
+                       ha='right', va='center', fontsize=8)
+        
+        ax.set_yticks(range(len(growth_df)))
+        ax.set_yticklabels(growth_df['product'])
+        ax.set_xlabel('Sales Growth Rate (%)')
+        ax.set_title(f'Sales Growth Rate by Product: Week {week-1} → Week {week}\n(Sorted by Growth Rate)')
+        ax.axvline(x=0, color='white', linestyle='-', linewidth=0.5, alpha=0.5)
+        ax.grid(True, alpha=0.3, axis='x')
+        plt.tight_layout()
+        
+        # Save the growth plot
+        plt.savefig(f'{analysis_dir}/product_sales_growth_week_{week}.png')
+        plt.close(fig)
+        
+        # Print growth summary
+        print(f"\n{'='*80}")
+        print(f"SALES GROWTH ANALYSIS - WEEK {week-1} → WEEK {week}")
+        print(f"{'='*80}")
+        print(f"{'Product':<20} {'Week {}'.format(week-1):>12} {'Week {}'.format(week):>12} {'Change':>12} {'Growth %':>12}")
+        print(f"{'-'*80}")
+        
+        # Sort by growth rate descending for display
+        display_df = growth_df.sort_values('growth_rate', ascending=False)
+        for _, row in display_df.iterrows():
+            print(f"{row['product']:<20} {row['prev_sold']:>12,.0f} {row['curr_sold']:>12,.0f} "
+                  f"{row['absolute_growth']:>+13,.0f} {row['growth_rate']:>11.1f}%")
+        
+        print(f"{'='*80}\n")
+        print(f"Growth rate plot saved to {analysis_dir}/product_sales_growth_week_{week}.png")
 
-plot_transactions_per_week()
+
+
+with open('output/amounts_7.json', 'r') as f:
+    amounts_dict = json.load(f)
+with open('output/prices_7.json', 'r') as f:
+    supplier_prices = json.load(f)
+calculate_profit_if_everything_sells(amounts_dict, supplier_prices)\
+
+analyze_weekly_product_performance()
