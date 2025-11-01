@@ -1,6 +1,5 @@
 import numpy as np
 import plotly.express as px
-import numba as nb
 from numba import jit
 
 # Numba-optimized functions for speed
