@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Test</title>
+</head>
+<body>
+    <h1>Simple Dashboard Test</h1>
+    <div id="status">Loading...</div>
+    <div id="data"></div>
+    
+    <script>
+        console.log('Script started');
+        
+        async function testAPI() {
+            try {
+                console.log('Fetching data...');
+                const response = await fetch('/api/stats');
+                console.log('Response:', response.status);
+                const data = await response.json();
+                console.log('Data:', data);
+                
+                document.getElementById('status').innerHTML = '✅ SUCCESS!';
+                document.getElementById('data').innerHTML = `
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('status').innerHTML = '❌ ERROR: ' + error.message;
+            }
+        }
+        
+        window.onload = function() {
+            console.log('Window loaded');
+            testAPI();
+        };
+    </script>
+</body>
+</html>
